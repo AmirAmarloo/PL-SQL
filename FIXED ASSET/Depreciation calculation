@@ -1,0 +1,1173 @@
+CREATE OR REPLACE PACKAGE BODY UPDATEALLMA_ID
+IS
+--------------------------------------------------------------------------
+-------------------------  ??IC?O E???C? ?C??  ----------------------------
+--------------------------------------------------------------------------
+   PROCEDURE BAHREHBARDARI (
+      EYEAR      IN   NUMBER,
+      EMONTH     IN   NUMBER,
+      TDSTATUS   IN   NUMBER,
+      TDDATE     IN   VARCHAR2,
+      MAID       IN   NUMBER,
+      TRDATE     IN   VARCHAR2,
+      CCRATE     IN   NUMBER,
+      USEDATE    IN   VARCHAR2,
+      CSTAT      IN   NUMBER,
+      CRATE      IN   NUMBER,
+      COSAVE     IN   NUMBER,
+      CONPRICE   IN   NUMBER,
+      MEMULT     IN   NUMBER,
+      CEMONTH    IN   NUMBER,
+      CEN        IN   NUMBER
+   )
+   IS
+      TEMP   INTEGER;
+   BEGIN
+      IF (CSTAT = 3) AND (CCRATE = 1)
+      THEN
+         MONTHDIST := ROUND ((MONTHDIST * MEMULT) / 100);
+/*Akbari87-08-19
+         TEMP := CRATE - MONTHDIST;
+*/
+         TEMP := CEMONTH - MONTHDIST-1;
+--         TEMP := CRATE - MONTHDIST;
+      ELSE
+         TEMP := CEMONTH;
+      END IF;
+
+      UPDATE COSTACNT
+         SET CO_USEDATE = TRDATE,
+             CO_EMONTH = TEMP,
+             CO_ESDATE = TRDATE,
+             CO_STATUS = TDSTATUS,
+             CO_NPRICE = CONPRICE - COSAVE,
+             CO_SAVE = 0,
+             CENCODE = NVL (CEN, CENCODE)
+       WHERE MA_ID = MAID AND CO_YEAR = EYEAR AND CO_MONTH = EMONTH;
+   END;
+
+-----------------------------------------------------------------------------
+   PROCEDURE KENAR (
+      EYEAR      IN   NUMBER,
+      EMONTH     IN   NUMBER,
+      TDSTATUS   IN   NUMBER,
+      TDDATE     IN   VARCHAR2,
+      MAID       IN   NUMBER,
+      TRDATE     IN   VARCHAR2,
+      CCRATE     IN   NUMBER,
+      USEDATE    IN   VARCHAR2,
+      CSTAT      IN   NUMBER,
+      CRATE      IN   NUMBER,
+      COSAVE     IN   NUMBER,
+      COAMOUNT   IN   NUMBER,
+      MEMULT     IN   NUMBER,
+      CEMONTH    IN   NUMBER,
+      CONPRICE   IN   NUMBER,
+      CEN        IN   NUMBER
+   )
+   IS
+      TEMP   INTEGER;
+   BEGIN
+      IF CCRATE = 1
+      THEN
+         TEMP := CEMONTH - MONTHDIST;
+      ELSE
+         TEMP := CEMONTH;
+      END IF;
+
+      UPDATE COSTACNT
+         SET CO_USEDATE = TRDATE,
+             CO_EMONTH = TEMP,
+             CO_ESDATE = TRDATE,
+             CO_STATUS = TDSTATUS,
+             CO_NPRICE = CONPRICE - COSAVE,
+             CO_SAVE = 0,
+             CENCODE = NVL (CEN, CENCODE)
+       WHERE MA_ID = MAID AND CO_YEAR = EYEAR AND CO_MONTH = EMONTH;
+   END;
+
+-----------------------------------------------------------------------------
+   PROCEDURE TRANS (
+      EYEAR    IN   NUMBER,
+      EMONTH   IN   NUMBER,
+      CEN      IN   NUMBER,
+      PLID     IN   NUMBER,
+      PRS      IN   NUMBER,
+      MAID     IN   NUMBER
+   )
+   IS
+   BEGIN
+      UPDATE COSTACNT
+         SET CENCODE = NVL (CEN, CENCODE)
+       WHERE MA_ID = MAID AND CO_YEAR = EYEAR AND CO_MONTH = EMONTH;
+
+      UPDATE MASSET
+         SET PL_ID = PLID,
+             PRSCODE = PRS
+       WHERE MA_ID = MAID;
+   END;
+
+-----------------------------------------------------------------------------
+   PROCEDURE SALE (
+      EYEAR    IN   NUMBER,
+      EMONTH   IN   NUMBER,
+      TRDATE   IN   NUMBER,
+      STAT     IN   NUMBER,
+      SAL      IN   NUMBER,
+      MAID     IN   NUMBER,
+      CEN      IN   NUMBER
+   )
+   IS
+   BEGIN
+      UPDATE COSTACNT
+         SET CO_ESDATE = TRDATE,
+             CO_STATUS = STAT,
+             CO_SALES = SAL,
+             CENCODE = NVL (CEN, CENCODE)
+       WHERE MA_ID = MAID AND CO_YEAR = EYEAR AND CO_MONTH = EMONTH;
+   END;
+
+-----------------------------------------------------------------------------
+   PROCEDURE ERSALAMANI (
+      EYEAR    IN   NUMBER,
+      EMONTH   IN   NUMBER,
+      TRDATE   IN   NUMBER,
+      STAT     IN   NUMBER,
+      KEID     IN   NUMBER,
+      MAID     IN   NUMBER,
+      CEN      IN   NUMBER
+   )
+   IS
+   BEGIN
+      UPDATE COSTACNT
+         SET CO_ESDATE = TRDATE,
+             CO_STATUS = STAT,
+             CENCODE = NVL (CEN, CENCODE)
+       WHERE MA_ID = MAID AND CO_YEAR = EYEAR AND CO_MONTH = EMONTH;
+
+      UPDATE MASSET
+         SET KE_ID = KEID
+       WHERE MA_ID = MAID;
+   END;
+
+-----------------------------------------------------------------------------
+   PROCEDURE HAZF (
+      EYEAR    IN   NUMBER,
+      EMONTH   IN   NUMBER,
+      STAT     IN   NUMBER,
+      MAID     IN   NUMBER,
+      TRDATE   IN   NUMBER,
+      CEN      IN   NUMBER
+   )
+   IS
+   BEGIN
+      UPDATE COSTACNT
+         SET CO_STATUS = STAT,
+             CO_ESDATE = TRDATE,
+             CENCODE = NVL (CEN, CENCODE)
+       WHERE MA_ID = MAID AND CO_YEAR = EYEAR AND CO_MONTH = EMONTH;
+   END;
+
+-----------------------------------------------------------------------------
+   PROCEDURE UPDATEMASSET (MAID IN NUMBER, PLID IN NUMBER, PRS_CODE IN NUMBER)
+   IS
+   BEGIN
+      UPDATE MASSET
+         SET PL_ID = NVL (PLID, PL_ID),
+             PRSCODE = NVL (PRS_CODE, PRS_CODE)
+       WHERE MA_ID = MAID;
+   END;
+
+--------------------------------- EU??? ????E -----------------------------------
+   PROCEDURE UPDATESTATCHANGE (EYEAR IN NUMBER, EMONTH IN NUMBER)
+   IS
+      CURSOR CHGSTATUS_CUR (CRYEAR NUMBER, CRMONTH NUMBER)
+      IS
+         SELECT   D.TD_STATUS, D.TD_DATE, D.MA_ID, D.CENCODE, D.PRSCODE,
+                  D.PL_ID, D.TD_SALE, D.KE_ID, T.TR_CDATE,
+                  NVL (C.CO_CRATE, 0) CO_CRATE,
+                  NVL (C.CO_USEDATE, 0) CO_USEDATE, C.CO_STATUS,
+                  NVL (C.CO_RATE, 0) CO_RATE, NVL (C.CO_SAVE, 0) CO_SAVE,
+                  NVL (C.CO_AMOUNT, 0) CO_AMOUNT, ME_MULT,
+                  NVL (C.CO_EMONTH, 0) CO_EMONTH, C.CO_NPRICE
+             FROM TRSNMST T, TRNSDST D, COSTACNT C, MERGE
+            WHERE T.TR_YEAR = CRYEAR
+              AND D.TR_YEAR = CRYEAR
+              AND ME_YEAR = CRYEAR
+              AND TO_NUMBER (SUBSTR (T.TR_CDATE, 5, 2)) = CRMONTH
+              AND C.CO_YEAR = CRYEAR
+              AND C.CO_MONTH = CRMONTH
+              AND D.TR_NO = T.TR_NO
+              AND C.MA_ID = D.MA_ID
+        ------------------------
+--        AND D.MA_ID =  600031
+        ------------------------
+         ORDER BY T.TR_CDATE;
+   BEGIN
+      FOR CHGSTATUS_REC IN CHGSTATUS_CUR (EYEAR, EMONTH)
+      LOOP
+         YEARDIST :=
+              TO_NUMBER (SUBSTR (CHGSTATUS_REC.TR_CDATE, 1, 4))
+            - TO_NUMBER (SUBSTR (CHGSTATUS_REC.CO_USEDATE, 1, 4));
+
+         IF YEARDIST > 0
+         THEN
+            MONTHDIST :=
+                 12
+               - TO_NUMBER (SUBSTR (CHGSTATUS_REC.CO_USEDATE, 5, 2))
+               + TO_NUMBER (SUBSTR (CHGSTATUS_REC.TR_CDATE, 5, 2))
+               + (12 * (YEARDIST - 1));
+         ELSE
+            MONTHDIST :=
+                 TO_NUMBER (SUBSTR (CHGSTATUS_REC.TR_CDATE, 5, 2))
+               - TO_NUMBER (SUBSTR (CHGSTATUS_REC.CO_USEDATE, 5, 2));
+         END IF;
+
+         IF CHGSTATUS_REC.TD_STATUS = 2
+         THEN
+            BAHREHBARDARI (EYEAR,
+                           EMONTH,
+                           CHGSTATUS_REC.TD_STATUS,
+                           CHGSTATUS_REC.TD_DATE,
+                           CHGSTATUS_REC.MA_ID,
+                           CHGSTATUS_REC.TR_CDATE,
+                           CHGSTATUS_REC.CO_CRATE,
+                           CHGSTATUS_REC.CO_USEDATE,
+                           CHGSTATUS_REC.CO_STATUS,
+                           CHGSTATUS_REC.CO_RATE,
+                           CHGSTATUS_REC.CO_SAVE,
+                           CHGSTATUS_REC.CO_NPRICE,
+                           CHGSTATUS_REC.ME_MULT,
+                           CHGSTATUS_REC.CO_EMONTH,
+                           CHGSTATUS_REC.CENCODE
+                          );
+         END IF;
+
+         IF CHGSTATUS_REC.TD_STATUS = 3
+         THEN
+            KENAR (EYEAR,
+                   EMONTH,
+                   CHGSTATUS_REC.TD_STATUS,
+                   CHGSTATUS_REC.TD_DATE,
+                   CHGSTATUS_REC.MA_ID,
+                   CHGSTATUS_REC.TR_CDATE,
+                   CHGSTATUS_REC.CO_CRATE,
+                   CHGSTATUS_REC.CO_USEDATE,
+                   CHGSTATUS_REC.CO_STATUS,
+                   CHGSTATUS_REC.CO_RATE,
+                   CHGSTATUS_REC.CO_SAVE,
+                   CHGSTATUS_REC.CO_AMOUNT,
+                   CHGSTATUS_REC.ME_MULT,
+                   CHGSTATUS_REC.CO_EMONTH,
+                   CHGSTATUS_REC.CO_NPRICE,
+                   CHGSTATUS_REC.CENCODE
+                  );
+         END IF;
+
+         IF CHGSTATUS_REC.TD_STATUS = 7
+         THEN
+            TRANS (EYEAR,
+                   EMONTH,
+                   CHGSTATUS_REC.CENCODE,
+                   CHGSTATUS_REC.PL_ID,
+                   CHGSTATUS_REC.PRSCODE,
+                   CHGSTATUS_REC.MA_ID
+                  );
+         END IF;
+
+         IF CHGSTATUS_REC.TD_STATUS = 5
+         THEN
+            SALE (EYEAR,
+                  EMONTH,
+                  CHGSTATUS_REC.TD_DATE,
+                  CHGSTATUS_REC.TD_STATUS,
+                  CHGSTATUS_REC.TD_SALE,
+                  CHGSTATUS_REC.MA_ID,
+                  CHGSTATUS_REC.CENCODE
+                 );
+         END IF;
+
+         IF CHGSTATUS_REC.TD_STATUS = 6
+         THEN
+            SALE (EYEAR,
+                  EMONTH,
+                  CHGSTATUS_REC.TD_DATE,
+                  CHGSTATUS_REC.TD_STATUS,
+                  CHGSTATUS_REC.TD_SALE,
+                  CHGSTATUS_REC.MA_ID,
+                  CHGSTATUS_REC.CENCODE
+                 );
+         END IF;
+
+         IF CHGSTATUS_REC.TD_STATUS = 8
+         THEN
+            ERSALAMANI (EYEAR,
+                        EMONTH,
+                        CHGSTATUS_REC.TD_DATE,
+                        CHGSTATUS_REC.TD_STATUS,
+                        CHGSTATUS_REC.KE_ID,
+                        CHGSTATUS_REC.MA_ID,
+                        CHGSTATUS_REC.CENCODE
+                       );
+         END IF;
+
+         IF CHGSTATUS_REC.TD_STATUS = 9
+         THEN
+            HAZF (EYEAR,
+                  EMONTH,
+                  CHGSTATUS_REC.TD_STATUS,
+                  CHGSTATUS_REC.MA_ID,
+                  CHGSTATUS_REC.TD_DATE,
+                  CHGSTATUS_REC.CENCODE
+                 );
+         END IF;
+
+         UPDATEMASSET (CHGSTATUS_REC.MA_ID,
+                       CHGSTATUS_REC.PL_ID,
+                       CHGSTATUS_REC.PRSCODE
+                      );
+      END LOOP;
+   END;
+
+-----------------------------------------------------------------------------
+   PROCEDURE CHANGEST (PRMS GLCHGSTNO_CUR%ROWTYPE)
+   IS
+      TEMP          INTEGER;
+      TEMP1         INTEGER;
+      TEMP3         NUMBER;
+      TEMP4         INTEGER;
+      TEMP5         INTEGER;
+      STMONTHDIST   NUMBER (3);
+      STYEARDIST    NUMBER (4);
+      ANPRICE       COSTACNT_T.CO_NPRICE%TYPE;
+      ASAVE         COSTACNT_T.CO_SAVE%TYPE;
+   BEGIN
+--ALIZADEH 83-11-26
+      BEGIN
+         SELECT COSTACNT_T.CO_NPRICE,
+                NVL (COSTACNT_T.CO_SAVE, 0) - NVL (COSTACNT_T.CO_INMDEPR, 0)
+           INTO ANPRICE,
+                ASAVE
+           FROM COSTACNT_T
+          WHERE COSTACNT_T.CO_YEAR = TO_NUMBER (SUBSTR (PRMS.ST_SDATE, 1, 4))
+            AND COSTACNT_T.CO_MONTH = TO_NUMBER (SUBSTR (PRMS.ST_SDATE, 5, 2))
+            AND COSTACNT_T.MA_ID = PRMS.MA_ID;
+
+      EXCEPTION
+         WHEN NO_DATA_FOUND
+         THEN
+            ANPRICE := PRMS.CO_NPRICE;
+            ASAVE := PRMS.CO_SAVE;
+      END;
+--ALIZADEH 83-11-26
+
+      STYEARDIST :=
+           TO_NUMBER (SUBSTR (PRMS.ST_DATE, 1, 4))
+         - TO_NUMBER (SUBSTR (PRMS.CO_USEDATE, 1, 4));
+
+      IF STYEARDIST > 0
+      THEN
+         STMONTHDIST :=
+              12
+            - TO_NUMBER (SUBSTR (PRMS.CO_USEDATE, 5, 2))
+            + TO_NUMBER (SUBSTR (PRMS.ST_SDATE, 5, 2))
+            + (12 * (STYEARDIST - 1));
+      ELSE
+         STMONTHDIST :=
+              TO_NUMBER (SUBSTR (PRMS.ST_SDATE, 5, 2))
+            - TO_NUMBER (SUBSTR (PRMS.CO_USEDATE, 5, 2));
+      END IF;
+
+      TEMP := PRMS.CO_NPRICE;
+      TEMP1 := PRMS.CO_EMONTH;
+      TEMP3 := PRMS.CO_RATE;
+
+      IF PRMS.ST_INC = 1
+      THEN
+         TEMP5 := PRMS.CO_AMOUNT + PRMS.ST_PRICE;
+      ELSE
+         TEMP5 := PRMS.CO_AMOUNT - PRMS.ST_PRICE;
+      END IF;
+
+      IF TO_NUMBER (SUBSTR (PRMS.ST_DATE, 1, 6)) =
+                                    TO_NUMBER (SUBSTR (PRMS.CO_USEDATE, 1, 6))
+      THEN
+         IF PRMS.ST_INC = 1
+         THEN
+--ALIZADEH 83-11-26
+--            TEMP := PRMS.CO_NPRICE + PRMS.ST_PRICE;
+            TEMP := ANPRICE + PRMS.ST_PRICE;
+--ALIZADEH 83-11-26
+         ELSE
+--ALIZADEH 83-11-26
+--            TEMP := PRMS.CO_NPRICE - PRMS.ST_PRICE;
+            TEMP := ANPRICE - PRMS.ST_PRICE;
+--ALIZADEH 83-11-26
+         END IF;
+      ELSE
+         IF PRMS.ST_INC = 1
+         THEN
+--ALIZADEH 83-11-26
+--            TEMP := PRMS.CO_NPRICE - PRMS.CO_SAVE + PRMS.ST_PRICE;
+            TEMP := ANPRICE - ASAVE + PRMS.ST_PRICE;
+--ALIZADEH 83-11-26
+         ELSE
+--ALIZADEH 83-11-26
+--            TEMP := PRMS.CO_NPRICE - PRMS.CO_SAVE - PRMS.ST_PRICE;
+            TEMP := ANPRICE - ASAVE - PRMS.ST_PRICE;
+--ALIZADEH 83-11-26
+         END IF;
+
+         IF (PRMS.CO_CRATE = 1) AND (PRMS.ST_NRATE IS NULL)
+         THEN
+            TEMP1 := PRMS.CO_EMONTH - STMONTHDIST;
+         END IF;
+      END IF;
+
+      IF PRMS.ST_NRATE IS NOT NULL
+      THEN
+         TEMP3 := PRMS.ST_NRATE;
+
+         IF PRMS.CO_CRATE = 1
+         THEN
+            TEMP1 := PRMS.ST_NRATE * 12;
+         END IF;
+      END IF;
+
+      IF PRMS.ST_INC = 1
+      THEN
+         TEMP4 := PRMS.COST + PRMS.ST_PRICE;
+      ELSE
+         TEMP4 := PRMS.COST - PRMS.ST_PRICE;
+      END IF;
+
+      UPDATE COSTACNT
+         SET CO_VUCHNO = PRMS.VNUM,
+             CO_VUCHDATE = PRMS.ST_VUCHDATE,
+             CO_NPRICE = TEMP,
+--ALIZADEH 83-11-26
+--             CO_SAVE = 0,
+             CO_SAVE = NVL (CO_SAVE, 0) - NVL (ASAVE, 0),
+--ALIZADEH 83-11-26
+             CO_EMONTH = TEMP1,
+             CO_RATE = TEMP3,
+             COST = TEMP4,
+             CO_USEDATE = PRMS.ST_SDATE,
+             CO_AMOUNT = TEMP5
+       WHERE MA_ID = PRMS.MA_ID AND CO_YEAR = INYEAR AND CO_MONTH = INMONTH;
+   END;
+
+-----------------------------------------------------------------------------
+   PROCEDURE BUILDREPORT (MAID IN NUMBER, REDATE IN NUMBER)
+   IS
+   BEGIN
+      INSERT INTO ERRORLST
+         SELECT C.MA_ID, S.ST_NO, C.CO_STATUS, S.ST_DATE, 1
+           FROM COSTACNT C, STCHANGE S
+          WHERE C.CO_YEAR = TO_NUMBER (SUBSTR (REDATE, 1, 4))
+            AND C.CO_MONTH = TO_NUMBER (SUBSTR (REDATE, 5, 2))
+            AND S.ST_YEAR = TO_NUMBER (SUBSTR (REDATE, 1, 4))
+            AND TO_NUMBER (SUBSTR (S.ST_DATE, 5, 2)) =
+                                             TO_NUMBER (SUBSTR (REDATE, 5, 2))
+            AND C.MA_ID = MAID
+            AND S.MA_ID = MAID;
+   END;
+
+-----------------------------  EU???CE ??C??  ----------------------------------
+   PROCEDURE UPDATESTNOCHANGE (EYEAR IN NUMBER, EMONTH IN NUMBER)
+   IS
+      CURSOR CHGSTNO_CUR (CRYEAR NUMBER, CRMONTH NUMBER)
+      IS
+         SELECT   ST_YEAR, ST_NO, STCHANGE.MA_ID, VYEAR, VNUM, ST_DATE,
+                  ST_VUCHDATE, ST_KIND, ST_PRICE, ST_SDATE, ST_NRATE, ST_INC,
+                  CO_AMOUNT, CO_SAVE, CO_USEDATE, CO_NPRICE, CO_EMONTH,
+                  CO_RATE, COST, CO_CRATE, CO_STATUS
+             FROM STCHANGE, COSTACNT
+            WHERE ST_YEAR = EYEAR
+              AND TO_NUMBER (SUBSTR (ST_DATE, 5, 2)) = EMONTH
+              AND CO_YEAR = EYEAR
+              AND CO_MONTH = EMONTH
+              AND COSTACNT.MA_ID = STCHANGE.MA_ID
+-------------------------------------------------
+--              AND COSTACNT.MA_ID = 600031
+-------------------------------------------------
+         ORDER BY ST_SDATE;
+   BEGIN
+      FOR CHGSTNO_REC IN CHGSTNO_CUR (EYEAR, EMONTH)
+      LOOP
+         IGNORETRNS := FALSE;
+         YEARDIST :=
+              TO_NUMBER (SUBSTR (CHGSTNO_REC.ST_DATE, 1, 4))
+            - TO_NUMBER (SUBSTR (CHGSTNO_REC.CO_USEDATE, 1, 4));
+
+         IF YEARDIST > 0
+         THEN
+            MONTHDIST :=
+                 12
+               - TO_NUMBER (SUBSTR (CHGSTNO_REC.CO_USEDATE, 5, 2))
+               + (12 * (YEARDIST - 1))
+               + TO_NUMBER (SUBSTR (CHGSTNO_REC.ST_DATE, 5, 2));
+         ELSE
+            MONTHDIST :=
+                 TO_NUMBER (SUBSTR (CHGSTNO_REC.ST_DATE, 5, 2))
+               - TO_NUMBER (SUBSTR (CHGSTNO_REC.CO_USEDATE, 5, 2));
+         END IF;
+
+         INYEAR := EYEAR;
+         INMONTH := EMONTH;
+
+/*         IF CHGSTNO_REC.CO_STATUS IN (9, 5, 6)
+         THEN
+            BUILDREPORT (CHGSTNO_REC.MA_ID, CHGSTNO_REC.ST_DATE);
+            IGNORETRNS := TRUE;
+         END IF;
+ */
+         IF IGNORETRNS = FALSE
+         THEN
+            CHANGEST (CHGSTNO_REC);
+         END IF;
+      END LOOP;
+   END;
+
+-----------------------------------------------------------------------------
+   PROCEDURE CHANGERE (PRMS GLCHGRENO_CUR%ROWTYPE)
+   IS
+      TEMP1   INTEGER;
+      TEMP2   NUMBER;
+      TEMP3   NUMBER;
+   BEGIN
+      TEMP1 := PRMS.CO_EMONTH;
+      TEMP2 := PRMS.CO_SAVE;
+      TEMP3 := PRMS.CO_AMOUNT + PRMS.RE_PRICE;
+
+      IF (PRMS.CO_CRATE = 1) AND (PRMS.RE_NEWRATE IS NULL)
+      THEN
+         TEMP1 := PRMS.CO_EMONTH - MONTHDIST;
+      END IF;
+
+      IF PRMS.RE_NEWRATE IS NOT NULL
+      THEN
+         TEMP2 := PRMS.RE_NEWRATE;
+
+         IF PRMS.CO_CRATE = 1
+         THEN
+            TEMP1 := 12 * PRMS.RE_NEWRATE;
+         END IF;
+      END IF;
+
+      UPDATE COSTACNT
+         SET CO_VUCHNO = PRMS.VNUM,
+             CO_VUCHDATE = PRMS.RE_VUCHDATE,
+             CO_NPRICE = PRMS.CO_NPRICE - PRMS.CO_SAVE + PRMS.RE_PRICE,
+             CO_SAVE = 0,
+             CO_EMONTH = TEMP1,
+             CO_RATE = TEMP2,
+             CO_USEDATE = PRMS.RE_DATE,
+             COST = COST + PRMS.RE_PRICE,
+             CO_AMOUNT = TEMP3
+       WHERE MA_ID = PRMS.MA_ID AND CO_YEAR = INYEAR AND CO_MONTH = INMONTH;
+
+      IF PRMS.CO_STATUS = 4
+      THEN
+         UPDATE COSTACNT
+            SET CO_STATUS = 2
+          WHERE MA_ID = PRMS.MA_ID AND CO_YEAR = INYEAR AND CO_MONTH = INMONTH;
+      END IF;
+   END;
+
+-----------------------------------------------------------------------------
+   PROCEDURE BUILDREPORTRENO (MAID IN NUMBER, REDATE IN NUMBER)
+   IS
+   BEGIN
+      INSERT INTO ERRORLST
+         SELECT C.MA_ID, C.CO_STATUS, R.RE_NO, R.RE_DATE, 2
+           FROM COSTACNT C, REPAIRPT R
+          WHERE C.CO_YEAR = TO_NUMBER (SUBSTR (REDATE, 1, 4))
+            AND C.CO_MONTH = TO_NUMBER (SUBSTR (REDATE, 5, 2))
+            AND R.RE_YEAR = TO_NUMBER (SUBSTR (REDATE, 1, 4))
+            AND TO_NUMBER (SUBSTR (R.RE_DATE, 5, 2)) =
+                                             TO_NUMBER (SUBSTR (REDATE, 5, 2))
+            AND C.MA_ID = MAID
+            AND R.MA_ID = MAID;
+   END;
+
+-----------------------------------------------------------------------------
+----------------------------  E????CE C?C??  ---------------------------------
+   PROCEDURE UPDATERENOCHANGE (EYEAR IN NUMBER, EMONTH IN NUMBER)
+   IS
+      CURSOR CHGRENO_CUR (CRYEAR NUMBER, CRMONTH NUMBER)
+      IS
+         SELECT   RE_YEAR, RE_NO, REPAIRPT.MA_ID, VYEAR, VNUM, RE_DATE,
+                  RE_VUCHDATE, RE_PRICE, RE_NEWRATE, CO_AMOUNT, CO_SAVE,
+                  CO_USEDATE, CO_NPRICE, CO_RATE, CO_CRATE, CO_EMONTH,
+                  CO_STATUS
+             FROM REPAIRPT, COSTACNT
+            WHERE RE_YEAR = EYEAR
+              AND TO_NUMBER (SUBSTR (RE_DATE, 5, 2)) = EMONTH
+              AND CO_YEAR = EYEAR
+              AND CO_MONTH = EMONTH
+              AND COSTACNT.MA_ID = REPAIRPT.MA_ID
+--------------------------------
+--              AND COSTACNT.MA_ID = 600031
+--------------------------------
+         ORDER BY RE_DATE;
+   BEGIN
+      FOR CHGRENO_REC IN CHGRENO_CUR (EYEAR, EMONTH)
+      LOOP
+         IGNORETRNS := FALSE;
+         YEARDIST :=
+              TO_NUMBER (SUBSTR (CHGRENO_REC.RE_DATE, 1, 4))
+            - TO_NUMBER (SUBSTR (CHGRENO_REC.CO_USEDATE, 1, 4));
+
+         IF YEARDIST > 0
+         THEN
+            MONTHDIST :=
+                 12
+               - TO_NUMBER (SUBSTR (CHGRENO_REC.CO_USEDATE, 5, 2))
+               + TO_NUMBER (SUBSTR (CHGRENO_REC.RE_DATE, 5, 2))
+               + (12 * (YEARDIST - 1));
+         ELSE
+            MONTHDIST :=
+                 TO_NUMBER (SUBSTR (CHGRENO_REC.RE_DATE, 5, 2))
+               - TO_NUMBER (SUBSTR (CHGRENO_REC.CO_USEDATE, 5, 2));
+         END IF;
+
+         INYEAR := EYEAR;
+         INMONTH := EMONTH;
+
+--Comment 83/3/24      IF CHGRENO_REC.CO_STATUS IN (9, 5, 4, 6) THEN
+         IF CHGRENO_REC.CO_STATUS IN (9, 5, 6)
+         THEN
+            BUILDREPORTRENO (CHGRENO_REC.RE_DATE, CHGRENO_REC.MA_ID);
+            IGNORETRNS := TRUE;
+         END IF;
+
+         IF IGNORETRNS = FALSE
+         THEN
+            CHANGERE (CHGRENO_REC);
+         END IF;
+      END LOOP;
+   END;
+
+--------------------------------------------------------------------------
+-------------------------  ??C?E? C?E??C?  ---------------------------------
+--------------------------------------------------------------------------
+   FUNCTION DEP_CALC_DECREMENT (PRMS IN GLCALCCOST_CUR%ROWTYPE)
+      RETURN NUMBER
+   IS
+      TEMP_DEP    NUMBER;
+      TOTAL_DEP   NUMBER;
+      TMPNPRICE   NUMBER;
+      TMPMONTH    NUMBER;
+      TMPYEAR     NUMBER;
+      DECREMENT   NUMBER;
+      DISTOEND    NUMBER;
+   BEGIN
+--  ??IC? C???? E?C? ?EU???C? ?C? ? ?C? ? C??O I?E?? I? EC??I ?E?C
+      TMPNPRICE := PRMS.CO_NPRICE;
+      TMPMONTH := TO_NUMBER (SUBSTR (PRMS.CO_USEDATE, 5, 2));
+      TMPYEAR := TO_NUMBER (SUBSTR (PRMS.CO_USEDATE, 1, 4));
+---------------------------------------------------------------
+      TOTAL_DEP := 0;
+
+      IF TMPYEAR < INYEAR
+      THEN
+         DISTOEND := 13 - TMPMONTH;
+         TEMP_DEP := (TMPNPRICE * PRMS.CO_RATE * DISTOEND) / 1200;
+         IF (PRMS.CO_CRATE = 2) AND (PRMS.CO_STATUS = 3) THEN
+           TMPNPRICE := TMPNPRICE - (TEMP_DEP* 30 /100);
+         ELSE
+           TMPNPRICE := TMPNPRICE - TEMP_DEP;
+         END IF;
+         TMPYEAR := TMPYEAR + 1;
+         TMPMONTH := 1;
+         TOTAL_DEP := TOTAL_DEP + TEMP_DEP;
+      END IF;
+
+      IF TMPYEAR < INYEAR
+      THEN
+         LOOP
+            TEMP_DEP := (TMPNPRICE * PRMS.CO_RATE) / 100;
+            IF (PRMS.CO_CRATE = 2) AND (PRMS.CO_STATUS = 3) THEN
+              TMPNPRICE := TMPNPRICE - (TEMP_DEP* 30 /100);
+            ELSE
+              TMPNPRICE := TMPNPRICE - TEMP_DEP;
+            END IF;
+--            TMPNPRICE := TMPNPRICE - TEMP_DEP;
+            TOTAL_DEP := TOTAL_DEP + TEMP_DEP;
+            TMPYEAR := TMPYEAR + 1;
+
+            IF TMPYEAR >= INYEAR
+            THEN
+               EXIT;
+            END IF;
+         END LOOP;
+      END IF;
+
+      DISTOEND := (INMONTH - TMPMONTH) + 1;
+      IF (PRMS.CO_RATE = 100) AND (PRMS.CO_CRATE =2) THEN
+        TEMP_DEP := (TMPNPRICE * PRMS.CO_RATE * DISTOEND) / ((12-TO_NUMBER (SUBSTR (PRMS.CO_USEDATE, 5, 2))+1)*100);
+      ELSE
+        TEMP_DEP := (TMPNPRICE * PRMS.CO_RATE * DISTOEND) / 1200;
+      END IF;
+      TOTAL_DEP := TOTAL_DEP + TEMP_DEP;
+      DECREMENT := TOTAL_DEP;
+      RETURN DECREMENT;
+   END;
+
+-----------------------------------------------------------------------------
+   FUNCTION DEP_CALC_DIRECT (PRMS IN GLCALCCOST_CUR%ROWTYPE)
+      RETURN NUMBER
+   IS
+      DIRECTCALC   NUMBER;
+   BEGIN
+      DIRECTCALC := (PRMS.CO_NPRICE * MONTHDIST) / PRMS.CO_EMONTH;
+      RETURN DIRECTCALC;
+   END;
+
+-----------------------------------------------------------------------------
+   FUNCTION DEP_CALC (PRMS IN GLCALCCOST_CUR%ROWTYPE)
+      RETURN NUMBER
+   IS
+      DEPCALC     NUMBER;
+      TOTAL_DEP   NUMBER;
+      TEMP1       NUMBER;
+      TEMP2       NUMBER;
+   BEGIN
+      IF PRMS.CO_CRATE = 1
+      THEN
+         TOTAL_DEP := DEP_CALC_DIRECT (PRMS);
+      ELSE
+         TOTAL_DEP := DEP_CALC_DECREMENT (PRMS);
+      END IF;
+
+      IF (PRMS.CO_STATUS = 3)-- OR (PRMS.CO_STATUS = 5)
+      THEN
+         TOTAL_DEP := ROUND (TOTAL_DEP * PRMS.ME_MULT);
+      END IF;
+
+--      if PRMS.CO_CRATE = 1 THEN
+      if PRMS.CO_USEDATE >14000101 THEN
+        DEPCALC := TOTAL_DEP - PRMS.CO_SAVE;
+      ELSE
+        DEPCALC := TOTAL_DEP/INMONTH;
+      END IF;
+--      end if;
+/*
+      if PRMS.CO_CRATE = 2 THEN
+        DEPCALC := TOTAL_DEP - PRMS.CO_SAVE;
+      END IF;
+*/
+/*      IF DEPCALC < 0 THEN
+        IF PRMS.MA_ID = 600031 THEN
+          DEPCALC := 0;
+        END IF;
+      END IF;
+*/
+      IF (PRMS.CO_STATUS = 5) OR (PRMS.CO_STATUS = 6) OR (PRMS.CO_STATUS = 9)
+      THEN
+         DEPCALC := (DEPCALC * SUBSTR (PRMS.CO_ESDATE, 7, 2)) / 30;
+      END IF;
+
+      RETURN DEPCALC;
+   END;
+
+-----------------------------------------------------------------------------
+   PROCEDURE CALCCOSTACNT (EYEAR IN NUMBER, EMONTH IN NUMBER)
+   IS
+      CURSOR CALCCOST_CUR (CRYEAR NUMBER, CRMONTH NUMBER)
+      IS
+         SELECT     CO_RATE, CO_CRATE,
+--                    CO_USEDATE,
+                    GREATEST('14000101',CO_USEDATE) CO_USEDATE,
+--                    decode(co_crate,1,GREATEST('980101',CO_USEDATE),CO_USEDATE) CO_USEDATE,
+                    NVL (CO_NPRICE, 0) CO_NPRICE, CO_ESDATE, CO_STATUS,
+                    NVL (CO_SAVE, 0) CO_SAVE, CO_MONTH, NVL (COST, 0) COST,
+                    NVL (CO_INMDEPR, 0) CO_INMDEPR, NVL (CO_KOL, 0) CO_KOL,
+                    MA_ID, NVL (CO_AMOUNT, 0) CO_AMOUNT, ME_MULT, CO_EMONTH
+               FROM COSTACNT, MERGE
+              WHERE CO_YEAR = EYEAR
+                AND ME_YEAR = EYEAR
+                AND CO_MONTH = EMONTH
+--910511                AND NVL (COST, 0) - NVL (CO_KOL, 0) > 0
+                AND CO_CALC = 2
+                AND CO_CRATE = 1
+                and co_emonth <> 0
+                AND MA_ID NOT IN(SELECT MA_ID
+                                   FROM COSTACNT1_T)
+                AND TO_NUMBER (SUBSTR (CO_USEDATE, 1, 6)) <= (EYEAR*100) + emonth
+--                AND TO_NUMBER (SUBSTR (CO_USEDATE, 5, 2)) <= EMonth
+        --------------------
+--        AND MA_ID <>  100001
+        --------------------
+                AND (   CO_STATUS IN (2, 3, 8)
+                     OR MA_ID IN (
+                           SELECT MA_ID
+                             FROM COSTACNT
+                            WHERE TO_NUMBER (SUBSTR (CO_ESDATE, 5, 2)) =
+                                                                        EMONTH
+                              AND CO_STATUS IN (5, 6, 9)
+                              AND CO_YEAR = EYEAR
+                              AND CO_MONTH = EMONTH)
+                    )
+UNION ALL
+         SELECT     CO_RATE, CO_CRATE,
+--                    CO_USEDATE,
+                    GREATEST('14000101',CO_USEDATE) CO_USEDATE,
+--                    decode(co_te,1,GREATEST('980101',CO_USEDATE),CO_USEDATE) CO_USEDATE,
+                    (SELECT NVL(CO_AMOUNT,0)
+                      FROM COSTACNT_T
+                      WHERE COSTACNT.MA_ID = COSTACNT_T.MA_ID
+                        AND COSTACNT.CO_YEAR = COSTACNT_T.CO_YEAR
+                        AND  COSTACNT_T.CO_MONTH = 0) CO_NPRICE, CO_ESDATE, CO_STATUS,
+--                    NVL (CO_NPRICE, 0) CO_NPRICE, CO_ESDATE, CO_STATUS,
+--                    0 CO_SAVE, CO_MONTH,
+                    NVL (CO_SAVE, 0) CO_SAVE, CO_MONTH,
+                    NVL(COST,0) COST,
+                    NVL (CO_INMDEPR, 0) CO_INMDEPR,
+--                    0 CO_KOL,
+                    NVL (CO_KOL, 0) CO_KOL,
+                    MA_ID, NVL (CO_AMOUNT, 0) CO_AMOUNT, ME_MULT, CO_EMONTH
+               FROM COSTACNT, MERGE
+              WHERE CO_YEAR = EYEAR
+                AND ME_YEAR = EYEAR
+                AND CO_MONTH = EMONTH
+--910511                AND NVL (COST, 0) - NVL (CO_KOL, 0) > 0
+                AND CO_CRATE = 2
+                AND CO_USEDATE < 14000101
+                AND CO_CALC = 2
+                and co_emonth <> 0
+                AND MA_ID NOT IN(SELECT MA_ID
+                                   FROM COSTACNT1_T)
+                AND TO_NUMBER (SUBSTR (CO_USEDATE, 1, 6)) <= (EYEAR*100) + emonth
+--                AND TO_NUMBER (SUBSTR (CO_USEDATE, 5, 2)) <= EMonth
+        --------------------
+--        AND MA_ID <>  100001
+        --------------------
+                AND (   CO_STATUS IN (2, 3, 8)
+                     OR MA_ID IN (
+                           SELECT MA_ID
+                             FROM COSTACNT
+                            WHERE TO_NUMBER (SUBSTR (CO_ESDATE, 5, 2)) =
+                                                                        EMONTH
+                              AND CO_STATUS IN (5, 6, 9)
+                              AND CO_YEAR = EYEAR
+                              AND CO_MONTH = EMONTH)
+                    )
+UNION ALL
+         SELECT     CO_RATE, CO_CRATE,
+--                    CO_USEDATE,
+                    GREATEST('14000101',CO_USEDATE) CO_USEDATE,
+--                    decode(co_crate,1,GREATEST('980101',CO_USEDATE),CO_USEDATE) CO_USEDATE,
+                    NVL (CO_NPRICE, 0) CO_NPRICE, CO_ESDATE, CO_STATUS,
+                    NVL (CO_SAVE, 0) CO_SAVE, CO_MONTH, NVL (COST, 0) COST,
+                    NVL (CO_INMDEPR, 0) CO_INMDEPR, NVL (CO_KOL, 0) CO_KOL,
+                    MA_ID, NVL (CO_AMOUNT, 0) CO_AMOUNT, ME_MULT, CO_EMONTH
+               FROM COSTACNT, MERGE
+              WHERE CO_YEAR = EYEAR
+                AND ME_YEAR = EYEAR
+                AND CO_MONTH = EMONTH
+--910511                AND NVL (COST, 0) - NVL (CO_KOL, 0) > 0
+                AND CO_CALC = 2
+                and co_emonth <> 0
+                AND CO_CRATE = 2
+                AND CO_USEDATE >= 14000101
+                AND MA_ID NOT IN(SELECT MA_ID
+                                   FROM COSTACNT1_T)
+                AND TO_NUMBER (SUBSTR (CO_USEDATE, 1, 6)) <= (EYEAR*100) + emonth
+--                AND TO_NUMBER (SUBSTR (CO_USEDATE, 5, 2)) <= EMonth
+        --------------------
+--        AND MA_ID <>  100001
+        --------------------
+                AND (   CO_STATUS IN (2, 3, 8)
+                     OR MA_ID IN (
+                           SELECT MA_ID
+                             FROM COSTACNT
+                            WHERE TO_NUMBER (SUBSTR (CO_ESDATE, 5, 2)) =
+                                                                        EMONTH
+                              AND CO_STATUS IN (5, 6, 9)
+                              AND CO_YEAR = EYEAR
+                              AND CO_MONTH = EMONTH)
+                    );
+
+
+
+      REM_DEP    NUMBER;
+      TEMP1      NUMBER;
+      MASTAT     NUMBER;
+      COKOL      NUMBER;
+      COSAVE     NUMBER;
+      COAMOUNT   NUMBER;
+   BEGIN
+      INYEAR := EYEAR;
+      INMONTH := EMONTH;
+
+      FOR CALCCOST_REC IN CALCCOST_CUR (EYEAR, EMONTH)
+      LOOP
+         YEARDIST :=
+                   EYEAR - TO_NUMBER (SUBSTR (CALCCOST_REC.CO_USEDATE, 1, 4));
+
+         IF YEARDIST > 0
+         THEN
+            MONTHDIST :=
+                 12
+               - TO_NUMBER (SUBSTR (CALCCOST_REC.CO_USEDATE, 5, 2))
+               + EMONTH
+               + 1
+               + (12 * (YEARDIST - 1));
+         ELSE
+            MONTHDIST :=
+               EMONTH - TO_NUMBER (SUBSTR (CALCCOST_REC.CO_USEDATE, 5, 2))
+               + 1;
+         END IF;
+
+         TEMP1 := DEP_CALC (CALCCOST_REC);
+         TEMP1 := ROUND (TEMP1);
+         MASTAT := CALCCOST_REC.CO_STATUS;
+
+         IF CALCCOST_REC.CO_CRATE = 2
+         THEN
+            REM_DEP := CALCCOST_REC.COST - CALCCOST_REC.CO_KOL;
+
+            IF REM_DEP < (CALCCOST_REC.COST / 100)
+            THEN
+               TEMP1 := TEMP1 + REM_DEP;
+            END IF;
+         END IF;
+
+/*amarloo  82-10-10
+      IF CALCCOST_REC.COST <= CALCCOST_REC.CO_KOL THEN
+        MASTAT := 4;
+      END IF;
+*/
+--Comment 83/3/26      IF CALCCOST_REC.COST - CALCCOST_REC.CO_KOL <= TEMP1 THEN
+/*  Mohammadzadeh  83/12/22
+         IF     (NOT CALCCOST_REC.CO_STATUS IN (5, 6))
+            AND (CALCCOST_REC.COST - CALCCOST_REC.CO_KOL <= TEMP1)
+         THEN
+            MASTAT := 4;
+            TEMP1 := CALCCOST_REC.COST - CALCCOST_REC.CO_KOL;
+         END IF;
+
+         IF TEMP1 > CALCCOST_REC.CO_AMOUNT
+         THEN
+            TEMP1 := CALCCOST_REC.CO_AMOUNT;
+         END IF;
+ Mohammadzadeh  83/12/22 */
+--910511
+         IF CALCCOST_REC.CO_NPRICE > 0 THEN
+           IF (TEMP1 + CALCCOST_REC.CO_SAVE) >= CALCCOST_REC.COST THEN
+--           IF (TEMP1 + CALCCOST_REC.CO_SAVE) >= CALCCOST_REC.CO_NPRICE THEN
+             TEMP1 := CALCCOST_REC.CO_AMOUNT ;
+           END IF;
+         END IF;
+
+         IF (NOT CALCCOST_REC.CO_STATUS IN (5,6)) AND
+            (CALCCOST_REC.COST = CALCCOST_REC.CO_KOL + TEMP1) THEN
+           MASTAT := 4;
+         END IF;
+
+         COKOL := CALCCOST_REC.CO_KOL + TEMP1;
+         COSAVE := CALCCOST_REC.CO_SAVE + TEMP1;
+         COAMOUNT := CALCCOST_REC.CO_AMOUNT - TEMP1;
+
+         IF MASTAT = 4
+         THEN
+            COAMOUNT := 0;
+         END IF;
+
+
+         UPDATE COSTACNT
+            SET CO_INMDEPR = TEMP1,
+                CO_KOL = COKOL,
+                CO_SAVE = COSAVE,
+                CO_STATUS = MASTAT,
+                CO_AMOUNT = COAMOUNT
+          WHERE MA_ID = CALCCOST_REC.MA_ID
+            AND CO_YEAR = EYEAR
+            AND CO_MONTH = EMONTH;
+       /*
+          IF CALCCOST_REC.MA_ID=  300344
+          THEN
+            UPDATE COSTACNT
+               SET CO_INMDEPR = CALCCOST_REC.CO_AMOUNT*30*8/100/100/12,
+                   CO_KOL = CALCCOST_REC.CO_KOL +CALCCOST_REC.CO_AMOUNT*30*8/100/100/12,
+                   CO_SAVE = CALCCOST_REC.CO_SAVE+CALCCOST_REC.CO_AMOUNT*30*8/100/100/12,
+                   CO_STATUS = MASTAT,
+                   CO_AMOUNT = CALCCOST_REC.CO_AMOUNT -CALCCOST_REC.CO_AMOUNT*30*8/100/100/12
+             WHERE MA_ID = CALCCOST_REC.MA_ID
+               AND CO_YEAR = EYEAR
+               AND CO_MONTH = EMONTH;
+          END IF;
+     */
+      END LOOP;
+--------------------
+
+/*
+UPDATE COSTACNT_T A SET
+  CO_CRATE = (SELECT CO_CRATE
+                FROM COSTACNT1_T B
+               WHERE A.MA_ID = B.MA_ID
+              )
+WHERE CO_YEAR = EYEAR
+AND CO_MONTH = EMONTH
+AND MA_ID IN(SELECT MA_ID
+                FROM COSTACNT1_T B
+               WHERE A.MA_ID = B.MA_ID
+              );
+*/
+/*
+UPDATE COSTACNT_T A SET
+  CO_RATE = (SELECT CO_RATE
+                FROM COSTACNT1_T B
+               WHERE A.MA_ID = B.MA_ID
+              )
+WHERE CO_YEAR = EYEAR
+AND CO_MONTH = EMONTH
+AND MA_ID IN(SELECT MA_ID
+                FROM COSTACNT1_T B
+               WHERE A.MA_ID = B.MA_ID
+              );
+
+*/
+/*
+UPDATE COSTACNT_T A SET
+  CO_INMDEPR = NVL(CO_INMDEPR,0)-
+              (SELECT SUM(NVL(CO_INMDEPR,0))
+                FROM COSTACNT_T B
+               WHERE A.MA_ID = B.MA_ID
+                 AND CO_YEAR = EYEAR
+                 AND CO_MONTH < EMONTH
+              )
+WHERE CO_YEAR = EYEAR
+AND CO_MONTH = EMONTH
+AND MA_ID IN(SELECT MA_ID
+                FROM COSTACNT1_T B
+               WHERE A.MA_ID = B.MA_ID
+              );
+*/
+/*
+UPDATE COSTACNT_T A SET
+  CO_INMDEPR = 0
+WHERE CO_YEAR = EYEAR
+AND CO_MONTH = EMONTH
+AND MA_ID IN(SELECT MA_ID
+                FROM COSTACNT1_T B
+               WHERE A.MA_ID = B.MA_ID
+              )
+ AND NVL(CO_INMDEPR,0) < 0;
+*/
+/*
+UPDATE COSTACNT_T A SET
+  CO_SAVE =  CO_INMDEPR+(SELECT SUM(NVL(CO_SAVE,0))
+                FROM COSTACNT_T B
+               WHERE A.MA_ID = B.MA_ID
+                 AND CO_YEAR = EYEAR
+                 AND CO_MONTH = EMONTH-1
+              )
+WHERE CO_YEAR = EYEAR
+AND CO_MONTH = EMONTH
+AND MA_ID IN(SELECT MA_ID
+                FROM COSTACNT1_T B
+               WHERE A.MA_ID = B.MA_ID
+              );
+*/
+/*
+UPDATE COSTACNT_T A SET
+  CO_KOL =  CO_INMDEPR+(SELECT SUM(NVL(CO_KOL,0))
+                FROM COSTACNT_T B
+               WHERE A.MA_ID = B.MA_ID
+                 AND CO_YEAR = EYEAR
+                 AND CO_MONTH = EMONTH-1
+              )
+WHERE CO_YEAR = EYEAR
+AND CO_MONTH = EMONTH
+AND MA_ID IN(SELECT MA_ID
+                FROM COSTACNT1_T B
+               WHERE A.MA_ID = B.MA_ID
+              );
+*/
+/*
+UPDATE COSTACNT_T A SET
+  CO_EMONTH = CO_RATE*12
+WHERE CO_YEAR = EYEAR
+AND CO_MONTH = EMONTH
+AND MA_ID IN(SELECT MA_ID
+                FROM COSTACNT1_T B
+               WHERE A.MA_ID = B.MA_ID
+              )
+ AND CO_CRATE=1;
+*/
+/*
+UPDATE COSTACNT_T A SET
+  CO_EMONTH = (SELECT CO_EMONTH
+                FROM COSTACNT1_T B
+               WHERE A.MA_ID = B.MA_ID
+              )
+WHERE CO_YEAR = EYEAR
+AND CO_MONTH = EMONTH
+AND MA_ID IN(SELECT MA_ID
+                FROM COSTACNT1_T B
+               WHERE A.MA_ID = B.MA_ID
+              )
+ AND CO_CRATE=2;
+*/
+--------------------
+   END;
+
+-----------------------------------------------------------------------------
+   PROCEDURE UPDATEMNTPRSSST (EYEAR IN NUMBER, EMONTH IN NUMBER)
+   IS
+   BEGIN
+      UPDATE MNTPRSSST
+         SET MP_OPRATION = 1;
+   END;
+
+-----------------------------------------------------------------------------
+   PROCEDURE MAINPROC (EYEAR INTEGER, EMONTH INTEGER)
+   IS
+   BEGIN
+      delete ERRORLST;
+      UPDATESTATCHANGE (EYEAR, EMONTH);
+      UPDATESTNOCHANGE (EYEAR, EMONTH);
+      UPDATERENOCHANGE (EYEAR, EMONTH);
+      CALCCOSTACNT (EYEAR, EMONTH);
+      UPDATEMNTPRSSST (EYEAR, EMONTH);
+      COMMIT;
+   END;
+END;
+/
+
+CREATE OR REPLACE PACKAGE UPDATEALLMA_ID
+IS
+   CURSOR GLCHGSTNO_CUR (CRYEAR NUMBER, CRMONTH NUMBER)
+   IS
+      SELECT ST_YEAR, ST_NO, STCHANGE.MA_ID, VYEAR, VNUM, ST_DATE,
+             ST_VUCHDATE, ST_KIND, ST_PRICE, ST_SDATE, ST_NRATE, ST_INC,
+             CO_AMOUNT, CO_SAVE, CO_USEDATE, CO_NPRICE, CO_EMONTH, CO_RATE,
+             COST, CO_CRATE, CO_STATUS
+        FROM STCHANGE, COSTACNT;
+
+   CURSOR GLCHGRENO_CUR (CRYEAR NUMBER, CRMONTH NUMBER)
+   IS
+      SELECT RE_YEAR, RE_NO, REPAIRPT.MA_ID, VYEAR, VNUM, RE_DATE,
+             RE_VUCHDATE, RE_PRICE, RE_NEWRATE, CO_AMOUNT, CO_SAVE,
+             CO_USEDATE, CO_NPRICE, CO_RATE, CO_CRATE, CO_EMONTH, CO_STATUS
+        FROM REPAIRPT, COSTACNT;
+
+   CURSOR GLCALCCOST_CUR (CRYEAR NUMBER, CRMONTH NUMBER)
+   IS
+      SELECT CO_RATE, CO_CRATE, CO_USEDATE, CO_NPRICE, CO_ESDATE, CO_STATUS,
+             CO_SAVE, CO_MONTH, COST, CO_INMDEPR, CO_KOL, MA_ID, CO_AMOUNT,
+             ME_MULT, CO_EMONTH
+        FROM COSTACNT, MERGE;
+
+   MONTHDIST    NUMBER (5);
+   YEARDIST     NUMBER (4);
+   INYEAR       NUMBER (4);
+   INMONTH      NUMBER (2);
+   IGNORETRNS   BOOLEAN;
+
+   PROCEDURE MAINPROC (EYEAR INTEGER, EMONTH INTEGER);
+END UPDATEALLMA_ID;
+/
